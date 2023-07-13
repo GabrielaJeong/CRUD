@@ -1,62 +1,74 @@
 const express = require('express');
 const router = express.Router();
-const { Posts } = require('../models');
+const { Posts, Op } = require('../models');
 
 const createNewPost = async (req, res) => {
     const { title, content } = req.body;
     try {
-        const post = await Posts.create({
+        await Posts.create({
             title,
             content
         });
-        return res.status(201).json(post);
+        return res.status(201).json({ message: "게시글을 생성하였습니다." });
     } catch (err) {
-        return res.status(500).json({ error: err.message });
+        return res.status(400).json({ errorMessage: '게시글 작성에 실패하였습니다.' });
     }
 };
 
 const getAllPosts = async (req, res) => {
     try {
-        const posts = await Posts.findAll();
-        return res.status(200).json(posts);
-    } catch (err) {
-        return res.status(500).json({ error: err.message });
+        const posts = await Posts.findAll({ order: [['createdAt', 'DESC']] });
+        res.json(posts);
+    } catch (error) {
+        console.log(error);
+        res.status(400).json({ errorMessage: '게시글 조회에 실패하였습니다.' });
     }
 };
 
 const updatePost = async (req, res) => {
-    const { title, content } = req.body;
-    const { postId } = req.params;
+    const { title, content, password } = req.body;
+
     try {
         const post = await Posts.findOne({
-            where: { id: postId },
+            where: { 
+                id: req.params.postId,
+                password: password 
+            }
         });
-        if (post) {
-            await post.update({
-                title,
-                content
-            });
-            return res.status(200).json(post);
+        if (!post) { 
+            return res.status(404).json({ errorMessage: '게시글 조회에 실패하였습니다.' });
         }
-        return res.status(404).json({ message: "Post not found" });
-    } catch (err) {
-        return res.status(500).json({ error: err.message });
+
+        post.title = title;
+        post.content = content;
+
+        await post.save();
+        res.status(201).json({ message: "게시글을 수정하였습니다." });
+    } catch (error) {
+        console.log(error);
+        res.status(400).json({ errorMessage: '게시글 수정에 실패하였습니다.' });
     }
 };
 
 const deletePostById = async (req, res) => {
-    const { postId } = req.params;
+    const { password } = req.body;
+
     try {
         const post = await Posts.findOne({
-            where: { id: postId },
+            where: { 
+                id: req.params.postId,
+                password: password 
+            }
         });
-        if (post) {
-            await post.destroy();
-            return res.status(204).json();
+        if (!post) {
+            return res.status(404).json({ errorMessage: '게시글이 존재하지 않습니다.' });
         }
-        return res.status(404).json({ message: "Post not found" });
-    } catch (err) {
-        return res.status(500).json({ error: err.message });
+
+        await post.destroy();
+        res.status(201).json({ message: '게시글을 삭제하였습니다.' });
+    } catch (error) {
+        console.log(error);
+        res.status(400).json({ errorMessage: '게시글 삭제에 실패하였습니다.' });
     }
 };
 
